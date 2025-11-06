@@ -10,8 +10,8 @@ export default function App() {
   const [loading, setLoading] = useState(false);
   const [sending, setSending] = useState(false);
 
-  const GET_MESSAGES_API = "https://ox2p58zihl.execute-api.ap-south-1.amazonaws.com/default/Get_ESP_Data";
-  const SEND_COMMAND_API = "https://romnk5zk78.execute-api.ap-south-1.amazonaws.com/default/Send_ESP_Data";
+  const GET_MESSAGES_API = "https://ye7scscfng.execute-api.us-east-1.amazonaws.com/default/Get_ESP32_data";
+  const SEND_COMMAND_API = "https://i95n20ki31.execute-api.ap-south-1.amazonaws.com/prod/send_esp_data";
 
   // Fetch all device data from DynamoDB via Lambda
   const fetchData = async () => {
@@ -19,10 +19,11 @@ export default function App() {
     try {
       const res = await axios.get(GET_MESSAGES_API);
       const data = typeof res.data === "string" ? JSON.parse(res.data) : res.data;
-      setRawMessages(data);
+      console.log( data.telemetry );
+      setRawMessages(data.telemetry );
 
       // Extract unique device IDs
-      const uniqueDevices = [...new Set(data.map((msg) => msg.deviceId))];
+      const uniqueDevices = [...new Set(data.telemetry.map((msg) => msg.deviceId))];
       setIot_devices(uniqueDevices);
 
       // Auto-select first device
@@ -55,20 +56,25 @@ export default function App() {
       alert("⚠️ Device ID and Command are required");
       return;
     }
-
+    console.log( command );
     setSending(true);
     try {
+      const payload = {
+        body : {
+          deviceId: deviceId,
+          command: command.trim()
+        }
+      }
       const res = await axios.post(
         SEND_COMMAND_API,
         {
-          deviceId,
-          command: command.trim(),
+          body : JSON.stringify( payload )
         },
         {
           headers: { "Content-Type": "application/json" },
         }
       );
-      console.log("✅ Command sent:", res.data);
+      console.log("✅ Command sent:", res );
       alert("✅ Command sent successfully!");
       setCommand("");
     } catch (err) {
@@ -109,9 +115,9 @@ export default function App() {
           ) : messages.length ? (
             <div className="max-h-[400px] overflow-y-auto flex flex-col gap-4">
               {messages.map((msg, idx) => {
-                let parsedData = msg.data;
+                let parsedData = msg.sensor;
                 try {
-                  parsedData = JSON.parse(msg.data);
+                  parsedData = JSON.parse(msg.sensor);
                 } catch (e) {}
 
                 return (
@@ -120,7 +126,7 @@ export default function App() {
                     className="p-3 border border-gray-200 bg-gray-100 rounded-lg"
                   >
                     <p><strong>Device:</strong> {msg.deviceId}</p>
-                    <p><strong>Data:</strong> <pre className="text-sm whitespace-pre-wrap">{JSON.stringify(parsedData, null, 2)}</pre></p>
+                    <p><strong>Data: </strong> sensor : {JSON.stringify(parsedData, null, 2)}</p>
                     <p className="text-sm text-gray-600"><strong>Time:</strong> {msg.timestamp}</p>
                   </div>
                 );
